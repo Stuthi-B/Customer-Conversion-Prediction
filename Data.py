@@ -2,9 +2,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split 
-from sklearn.model_selection import StandardScaler
-
+from sklearn.model_selection import train_test_split,cross_val_score 
+from sklearn.preprocessing import StandardScaler
+import imblearn
+from imblearn.combine import SMOTEENN
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import plot_roc_curve, accuracy_score,confusion_matrix
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+import xgboost as xgb
+from sklearn.ensemble import RandomForestClassifier
 
 
 
@@ -180,5 +187,87 @@ y=data['New_target'].values
 X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.20,random_state=0)
 
 # Balancing the training data:
+smt = SMOTEENN(sampling_strategy='all') 
+X_smt, y_smt = smt.fit_resample(X_train, y_train) 
+import collections, numpy
+counter = collections.Counter(y_smt)
+# print(counter)
 
-# X=data
+
+# Scaling
+scaler=StandardScaler()
+X_train_scaled = scaler.fit_transform(X_smt)
+X_test_scaled = scaler.transform(X_test)
+
+# Model Building
+# 1.Logistic Regression
+logistic_regression=LogisticRegression()
+logistic_regression.fit(X_train_scaled,y_smt)
+LR_pred=logistic_regression.predict(X_test_scaled)
+LR_proba=logistic_regression.predict_proba(X_test_scaled)
+c1=confusion_matrix(y_test,LR_pred)
+# lr_plot=plot_roc_curve(logistic_regression, X_test_scaled, y_test)
+# print(LR_proba)
+# print(LR_pred)
+# plt.show()
+# print(c1)
+# print(lr_plot)
+#0.90 auroc
+
+# 2. KNN
+# finding the best vlue of k
+# for i in [5,6,7,8,9,10,11,12,13,14,15]:
+#     knn=KNeighborsClassifier(i)
+#     knn.fit(X_train_scaled,y_smt)
+#     print("k value :" ,i, "trainscore :", knn.score(X_train_scaled, y_smt), "cv score :", np.mean(cross_val_score(knn, X_train_scaled, y_smt, cv=10, scoring="roc_auc")))
+knn=KNeighborsClassifier(8)
+knn.fit(X_train_scaled,y_smt)
+knn_pred=knn.predict(X_test_scaled)
+# knn_plot=plot_roc_curve(knn, X_test_scaled, y_test)
+# print(knn_plot)
+# plt.show()
+# print(knn_pred)
+# 0.88
+
+# 3.Decision tree
+dt = DecisionTreeClassifier()
+# dt.fit(X_train_scaled,y_smt)
+# dt_pred=dt.predict(X_test_scaled)
+# dt_plot=plot_roc_curve(dt,X_test_scaled, y_test)
+# print(dt_plot)
+# plt.show()
+# doing cross validation
+# for depth in [10,15,16,17,18,19,20,21,22]:
+#     dt = DecisionTreeClassifier(max_depth=depth)
+#     dt.fit(X_train_scaled, y_smt)
+#     trainAccuracy = accuracy_score(y_smt, dt.predict(X_train_scaled))
+#     valAccuracy = cross_val_score(dt, X_train_scaled, y_smt, cv=10)
+#     print("Depth  : ", depth, " Training Accuracy : ", trainAccuracy, " Cross val score : " ,np.mean(valAccuracy))
+    
+dt = DecisionTreeClassifier(max_depth=17)
+dt.fit(X_train_scaled, y_smt)
+# dt_plot=plot_roc_curve(dt,X_test_scaled, y_test)
+# print(dt_plot)
+# plt.show()
+# 0.77
+
+
+# 4.Xgboost
+# for lr in [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.2,0.5,0.7,1]:
+#       model = xgb.XGBClassifier(learning_rate = lr, n_estimators=100, verbosity = 0)  
+#       print("Learning rate : ", lr," Cross-Val score : ", np.mean(cross_val_score(model, X_test_scaled, y_test, cv=10)))
+
+model = xgb.XGBClassifier(learning_rate = 0.2, n_estimators=100)     
+model.fit(X_train_scaled,y_smt)
+# xgb_plot=plot_roc_curve(model,X_test_scaled,y_test)
+# print(xgb_plot)
+# plt.show()
+# 0.92
+
+# 5.Random forest
+rf=RandomForestClassifier(n_estimators=100,criterion="entropy")
+rf.fit(X_train_scaled,y_smt)
+rf_plot=plot_roc_curve(rf,X_test_scaled,y_test)
+print(rf_plot)
+plt.show()
+# 0.92
